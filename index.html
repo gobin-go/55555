@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>조작 가능한 돌림판</title>
+<style>
+  body { font-family: Arial, sans-serif; display:flex; flex-direction:column; align-items:center; padding:20px; background:#f0f0f0; }
+  canvas { border:2px solid #333; margin-top:20px; }
+  input { margin:5px; width:100px; }
+  #winners { margin-top:20px; }
+  button { margin-top:10px; padding:10px 20px; font-size:16px; }
+</style>
+</head>
+<body>
+
+<h2>돌림판</h2>
+
+<div>
+  <p>12명 이름 입력:</p>
+  <div id="nameInputs"></div>
+</div>
+
+<button id="spinBtn">룰렛 돌리기</button>
+<button id="resetBtn">초기화</button>
+
+<canvas id="wheel" width="400" height="400"></canvas>
+
+<div id="winners">
+  <h3>당첨자 명단</h3>
+  <ul id="winnerList"></ul>
+</div>
+
+<script>
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+const spinBtn = document.getElementById('spinBtn');
+const resetBtn = document.getElementById('resetBtn');
+const winnerList = document.getElementById('winnerList');
+
+const N = 12;
+const sliceDeg = 360 / N;
+let names = Array(N).fill('');
+
+// 입력칸 생성
+const nameInputsDiv = document.getElementById('nameInputs');
+for(let i=0;i<N;i++){
+  const inp = document.createElement('input');
+  inp.placeholder = `이름 ${i+1}`;
+  inp.addEventListener('input', e => names[i] = e.target.value);
+  nameInputsDiv.appendChild(inp);
+}
+
+// 조작 가능한 인덱스 (0 기반)
+const forcedIndices = [0,2,3,4,7,10];
+
+let rotation = 0;
+
+// 돌림판 그리기
+function drawWheel(rotationAngle){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const cx = canvas.width/2;
+  const cy = canvas.height/2;
+  const r = 180;
+
+  for(let i=0;i<N;i++){
+    const start = ((i*sliceDeg) - 90 + rotationAngle) * Math.PI/180;
+    const end = (((i+1)*sliceDeg) - 90 + rotationAngle) * Math.PI/180;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, end);
+    ctx.closePath();
+    ctx.fillStyle = i%2===0?'#ff9999':'#99ccff';
+    ctx.fill();
+
+    // 이름 쓰기
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate((start+end)/2);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#000';
+    ctx.font = '14px Arial';
+    ctx.fillText(names[i] || `칸 ${i+1}`, r-10, 5);
+    ctx.restore();
+  }
+
+  // 중앙 표시 (화살표: 칸1과 칸2 사이, 아래를 보는 방향)
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.beginPath();
+  ctx.moveTo(0, -180);    // 위쪽 끝
+  ctx.lineTo(-15, -150);  // 좌측 아래
+  ctx.lineTo(15, -150);   // 우측 아래
+  ctx.closePath();
+  ctx.fillStyle = 'black';
+  ctx.fill();
+  ctx.restore();
+}
+
+drawWheel(rotation);
+
+// 룰렛 돌리기 애니메이션
+function spinWheel(){
+  spinBtn.disabled = true;
+
+  // 조작된 인덱스 선택
+  const idx = forcedIndices[Math.floor(Math.random()*forcedIndices.length)];
+  const targetAngle = (360 - (idx * sliceDeg + sliceDeg/2)) % 360;
+
+  // 애니메이션 설정
+  let start = null;
+  const duration = 4000; // 4초
+  const spins = 5; // 전체 회전 횟수
+
+  function animate(timestamp){
+    if(!start) start = timestamp;
+    const elapsed = timestamp - start;
+    const progress = Math.min(elapsed / duration, 1);
+
+    // easing (부드럽게 감속)
+    const ease = 1 - Math.pow(1 - progress, 3);
+
+    rotation = spins*360*ease + targetAngle*ease;
+    drawWheel(rotation);
+
+    if(progress < 1){
+      requestAnimationFrame(animate);
+    } else {
+      // 당첨자 기록
+      const winner = names[idx] || `칸 ${idx+1}`;
+      const li = document.createElement('li');
+      li.textContent = winner;
+      winnerList.appendChild(li);
+      spinBtn.disabled = false;
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+spinBtn.addEventListener('click', spinWheel);
+
+// 초기화 버튼
+resetBtn.addEventListener('click', () => {
+  winnerList.innerHTML = '';
+});
+</script>
+
+</body>
+</html>
